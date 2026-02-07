@@ -97,6 +97,23 @@ export const api = {
         body: JSON.stringify({ version_id: versionId })
       }
     )
+  },
+  async runTest(botId: string) {
+    return request<{ match_id: number; cum_a: number; cum_b: number }>(
+      `/api/bots/${botId}/run-test`,
+      { method: 'POST', auth: true }
+    )
+  },
+  async getMatch(matchId: number) {
+    return request<{
+      id: number
+      env_id: string
+      opponent_name: string
+      seed: number
+      status: string
+      cum_a?: number
+      cum_b?: number
+      steps: Array<any>
+    }>(`/api/matches/${matchId}`, { auth: true })
   }
 }
-

@@ -1,4 +1,8 @@
+from datetime import datetime, timezone
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,6 +16,10 @@ from app.crud.bots import (
 )
 from app.db.session import get_db
 from app.models.bot_version import BotVersion
+from app.models.match import Match
+from app.models.match_step import MatchStep
+from app.core.config import settings
+from app.services.docker_ipd_runner import DockerRunConfig, run_ipd_in_docker
 from app.schemas.bot import (
     BotCreateIn,
     BotOut,
@@ -20,6 +28,7 @@ from app.schemas.bot import (
     BotWithVersionsOut,
     SetActiveVersionIn,
 )
+from app.schemas.match import RunTestOut
 
 router = APIRouter(prefix="/bots", tags=["bots"])
 
@@ -114,12 +123,70 @@ def bots_set_active(
 
 
 @router.post("/{bot_id}/run-test")
-def bots_run_test(bot_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Sandbox execution is intentionally not implemented in this scaffold.
+def bots_run_test(bot_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)) -> RunTestOut:
     bot = get_bot(db, user.id, bot_id)
     if bot is None:
         raise HTTPException(status_code=404, detail="bot_not_found")
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="not_implemented")
+    if bot.active_version_id is None:
+        raise HTTPException(status_code=400, detail="no_active_version")
+
+    active = db.scalar(
+        select(BotVersion).where(BotVersion.id == bot.active_version_id, BotVersion.bot_id == bot.id)
+    )
+    if active is None:
+        raise HTTPException(status_code=400, detail="active_version_missing")
+
+    seed = secrets.randbelow(2**31 - 1)
+    baseline_code = "def act(observation, state):\n    return 'C', state\n"
+
+    match = Match(
+        env_id="ipd",
+        user_id=user.id,
+        bot_id=bot.id,
+        bot_version_id=active.id,
+        opponent_name="always_cooperate",
+        seed=seed,
+        status="running",
+    )
+    db.add(match)
+    db.commit()
+    db.refresh(match)
+
+    cfg = DockerRunConfig(image=settings.runner_image)
+    result = run_ipd_in_docker(cfg=cfg, bot_a_code=active.code, bot_b_code=baseline_code, seed=seed)
+
+    if result.error_log:
+        match.status = "failed"
+        match.finished_at = datetime.now(timezone.utc)
+        match.error_log = result.error_log
+        db.add(match)
+        db.commit()
+        raise HTTPException(status_code=500, detail="runner_failed")
+
+    steps = []
+    for s in result.steps:
+        steps.append(
+            MatchStep(
+                match_id=match.id,
+                round=int(s["round"]),
+                obs_a=s["obs_a"],
+                act_a=str(s["act_a"]),
+                obs_b=s["obs_b"],
+                act_b=str(s["act_b"]),
+                reward_a=int(s["reward_a"]),
+                reward_b=int(s["reward_b"]),
+                cum_a=int(s["cum_a"]),
+                cum_b=int(s["cum_b"]),
+            )
+        )
+
+    match.status = "completed"
+    match.finished_at = datetime.now(timezone.utc)
+    db.add(match)
+    db.add_all(steps)
+    db.commit()
+
+    return RunTestOut(match_id=match.id, cum_a=int(result.cum_a), cum_b=int(result.cum_b))
 
 
 @router.post("/{bot_id}/submit")
@@ -129,4 +196,3 @@ def bots_submit(bot_id: int, db: Session = Depends(get_db), user=Depends(get_cur
     if bot is None:
         raise HTTPException(status_code=404, detail="bot_not_found")
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="not_implemented")
-

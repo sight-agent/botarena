@@ -6,6 +6,8 @@ export default function BotDetailPage() {
   const { botId } = useParams()
   const [bot, setBot] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [runStatus, setRunStatus] = useState<string | null>(null)
+  const [runResult, setRunResult] = useState<any>(null)
   const [code, setCode] = useState(
     "def act(observation, state):\n    return 'C', state\n"
   )
@@ -80,13 +82,20 @@ export default function BotDetailPage() {
             Save new version
           </button>
           <button
-            onClick={() => {
-              alert(
-                'Run Test / Submit are intentionally not implemented in this scaffold.'
-              )
+            onClick={async () => {
+              setRunStatus('Running sandbox match vs always_cooperate...')
+              setRunResult(null)
+              try {
+                const r = await api.runTest(botId)
+                setRunResult(r)
+                setRunStatus(null)
+              } catch (err: any) {
+                setRunStatus(null)
+                setError(String(err?.message || err))
+              }
             }}
           >
-            Run Test (stub)
+            Run Test
           </button>
           <button
             onClick={() => {
@@ -96,8 +105,16 @@ export default function BotDetailPage() {
             Submit (stub)
           </button>
         </div>
+        {runStatus ? <div style={{ marginTop: 8 }}>{runStatus}</div> : null}
+        {runResult ? (
+          <div style={{ marginTop: 8 }}>
+            <div>
+              Match #{runResult.match_id} complete. You: {runResult.cum_a} vs
+              baseline: {runResult.cum_b}
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   )
 }
-

@@ -23,12 +23,25 @@ services:
       DATABASE_URL: postgresql+psycopg2://botarena:botarena@db:5432/botarena
       # Same-origin deployment: no CORS needed
       CORS_ORIGINS: ""
+      RUNNER_IMAGE: botarena-runner:latest
+    volumes:
+      # Backend can start sandbox containers via the local Docker daemon.
+      # The socket is not exposed publicly (no port mapping for it).
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       - db
+      - runner
     restart: unless-stopped
+
+  runner:
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    image: botarena-runner:latest
+    command: ["true"]
+    restart: "no"
 
 volumes:
   botarena_pgdata:
-

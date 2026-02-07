@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     # CORS (frontend dev server + any local tooling)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Sandbox runner
+    runner_image: str = "botarena-runner:latest"
+
 
 settings = Settings()
-
