@@ -5,23 +5,29 @@ services:
       POSTGRES_USER: botarena
       POSTGRES_PASSWORD: botarena
       POSTGRES_DB: botarena
+    # Do not expose Postgres publicly.
+    # If you need local access, use: ssh -L 5432:127.0.0.1:5432 <server>
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - botarena_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    env_file:
+      - /etc/botarena/backend.env
     environment:
       DATABASE_URL: postgresql+psycopg2://botarena:botarena@db:5432/botarena
-      SECRET_KEY: change-me-in-prod
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Same-origin deployment: no CORS needed
+      CORS_ORIGINS: ""
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - db
+    restart: unless-stopped
 
 volumes:
   botarena_pgdata:
