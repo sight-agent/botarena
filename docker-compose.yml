@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: botarena
+      POSTGRES_PASSWORD: botarena
+      POSTGRES_DB: botarena
+    ports:
+      - "5432:5432"
+    volumes:
+      - botarena_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://botarena:botarena@db:5432/botarena
+      SECRET_KEY: change-me-in-prod
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  botarena_pgdata:
+
