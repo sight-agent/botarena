@@ -1,5 +1,6 @@
-export const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000'
+// If served behind the same origin (recommended on VPS), leave VITE_API_BASE empty
+// and use relative URLs so we avoid CORS/mixed-content issues.
+export const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
 
 export function getToken(): string | null {
   return localStorage.getItem('access_token')
