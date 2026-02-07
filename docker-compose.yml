@@ -28,6 +28,9 @@ services:
       # Backend can start sandbox containers via the local Docker daemon.
       # The socket is not exposed publicly (no port mapping for it).
       - /var/run/docker.sock:/var/run/docker.sock
+      # Compose backend image may not include the docker CLI binary on Debian.
+      # Mount the host docker client to run sandbox containers.
+      - /usr/bin/docker:/usr/bin/docker:ro
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
