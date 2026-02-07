@@ -54,8 +54,21 @@ def _truncate(s: str, limit: int = MAX_LOG_BYTES) -> str:
 
 def _bot_proc(*, code_path: str, seed: int) -> subprocess.Popen:
     # Run isolated python (-I), no site packages, no user env.
+    # Python isolated mode (-I) doesn't reliably include WORKDIR on sys.path.
+    # We explicitly add /app so `runner.*` imports work inside the sandbox image.
     return subprocess.Popen(
-        ["python", "-I", "-u", "-m", "runner.bot_worker", "--code-path", code_path, "--seed", str(seed)],
+        [
+            "python",
+            "-I",
+            "-u",
+            "-c",
+            (
+                "import sys,runpy; "
+                "sys.path.insert(0,'/app'); "
+                f"sys.argv=['runner.bot_worker','--code-path','{code_path}','--seed','{seed}']; "
+                "runpy.run_module('runner.bot_worker', run_name='__main__')"
+            ),
+        ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

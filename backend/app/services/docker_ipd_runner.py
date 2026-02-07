@@ -61,8 +61,8 @@ def run_ipd_in_docker(*, cfg: DockerRunConfig, bot_a_code: str, bot_b_code: str,
         cfg.image,
         "python",
         "-I",
-        "-m",
-        "runner.harness",
+        "-c",
+        "import sys,runpy; sys.path.insert(0,'/app'); runpy.run_module('runner.harness', run_name='__main__')",
     ]
 
     try:
