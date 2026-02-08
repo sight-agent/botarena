@@ -64,6 +64,26 @@ def upgrade() -> None:
     op.alter_column("bots", "env_id", existing_type=sa.String(length=50), nullable=False)
     op.alter_column("bots", "code", existing_type=sa.Text(), nullable=False)
 
+    # Enforce new global uniqueness (env_id, name): rename duplicates automatically.
+    # Keep the smallest id as-is; for the others, append "-<id>".
+    dup_rows = conn.execute(
+        sa.text(
+            """
+            SELECT env_id, name, array_agg(id ORDER BY id) AS ids
+            FROM bots
+            GROUP BY env_id, name
+            HAVING count(*) > 1
+            """
+        )
+    ).fetchall()
+    for env_id, name, ids in dup_rows:
+        # ids is a Python list thanks to psycopg2 array adaptation
+        for bid in ids[1:]:
+            conn.execute(
+                sa.text("UPDATE bots SET name = :new_name WHERE id = :id"),
+                {"new_name": f"{name}-{bid}", "id": bid},
+            )
+
     # Drop old unique constraint and create new one (env_id,name)
     op.drop_constraint("uq_bots_user_id_name", "bots", type_="unique")
     op.create_unique_constraint("uq_bots_env_id_name", "bots", ["env_id", "name"])
