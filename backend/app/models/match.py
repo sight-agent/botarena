@@ -17,9 +17,7 @@ class Match(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     bot_id: Mapped[int] = mapped_column(ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
-    bot_version_id: Mapped[int] = mapped_column(
-        ForeignKey("bot_versions.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    bot_code_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
     opponent_name: Mapped[str] = mapped_column(String(100), nullable=False)
     seed: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -34,7 +32,6 @@ class Match(Base):
 
     owner = relationship("User")
     bot = relationship("Bot")
-    bot_version = relationship("BotVersion")
 
     steps = relationship("MatchStep", back_populates="match", cascade="all, delete-orphan")
 

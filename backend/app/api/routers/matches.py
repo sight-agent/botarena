@@ -22,7 +22,7 @@ def matches_get(match_id: int, db: Session = Depends(get_db), user=Depends(get_c
         id=m.id,
         env_id=m.env_id,
         bot_id=m.bot_id,
-        bot_version_id=m.bot_version_id,
+        bot_code_hash=m.bot_code_hash,
         opponent_name=m.opponent_name,
         seed=m.seed,
         status=m.status,

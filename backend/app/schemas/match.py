@@ -19,7 +19,7 @@ class MatchOut(BaseModel):
     id: int
     env_id: str
     bot_id: int
-    bot_version_id: int
+    bot_code_hash: str
     opponent_name: str
     seed: int
     status: str

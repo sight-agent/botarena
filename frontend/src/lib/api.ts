@@ -83,43 +83,36 @@ export const api = {
     return request<
       Array<{
         id: number
+        env_id: string
         name: string
         description: string | null
-        active_version_id: number | null
+        submitted: boolean
       }>
     >('/api/bots', { auth: true })
   },
-  async createBot(name: string, description: string, code: string) {
-    return request<{ id: number; name: string }>(`/api/bots`, {
+  async createBot(envId: string, name: string, description: string, code: string) {
+    return request<{ id: number; env_id: string; name: string }>(`/api/bots`, {
       method: 'POST',
       auth: true,
-      body: JSON.stringify({ name, description, code })
+      body: JSON.stringify({ env_id: envId, name, description, code })
     })
   },
   async getBot(botId: string) {
     return request<{
       id: number
+      env_id: string
       name: string
       description: string | null
-      active_version_id: number | null
-      versions: Array<{ id: number; version_num: number; code: string }>
+      submitted: boolean
+      code: string
     }>(`/api/bots/${botId}`, { auth: true })
   },
-  async createVersion(botId: string, code: string) {
-    return request<{ id: number; version_num: number; code: string }>(
-      `/api/bots/${botId}/versions`,
-      { method: 'POST', auth: true, body: JSON.stringify({ code }) }
-    )
-  },
-  async setActiveVersion(botId: string, versionId: number) {
-    return request<{ id: number; active_version_id: number | null }>(
-      `/api/bots/${botId}/active_version`,
-      {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({ version_id: versionId })
-      }
-    )
+  async updateBotCode(botId: string, code: string) {
+    return request<{ id: number; updated_at: string }>(`/api/bots/${botId}`, {
+      method: 'PUT',
+      auth: true,
+      body: JSON.stringify({ code })
+    })
   },
   async runTest(botId: string) {
     return request<{ match_id: number; cum_a: number; cum_b: number }>(
@@ -145,19 +138,14 @@ export const api = {
       auth: true
     })
   },
-  async deleteVersion(botId: string, versionId: number) {
-    return request<{ ok: true }>(`/api/bots/${botId}/versions/${versionId}`, {
-      method: 'DELETE',
-      auth: true
-    })
-  },
+  // bot versions removed in MVP refactor
   async ipdLeaderboard() {
     return request<
       Array<{ bot_id: number; bot_name: string; best_score: number; matches: number }>
     >('/api/env/ipd/leaderboard')
   },
   async submitBot(botId: string) {
-    return request<{ id: number; submitted_env: string | null }>(
+    return request<{ id: number; env_id: string; submitted: boolean }>(
       `/api/bots/${botId}/submit`,
       { method: 'POST', auth: true }
     )

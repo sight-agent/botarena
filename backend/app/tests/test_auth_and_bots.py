@@ -23,7 +23,7 @@ def test_create_bot_unique_per_user(client):
     token = _login(client, "alice", "password123").json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    payload = {"name": "mybot", "description": "x", "code": "def act(observation, state):\n    return 'C', state\n"}
+    payload = {"env_id": "ipd", "name": "mybot", "description": "x", "code": "def act(observation, state):\n    return 'C', state\n"}
     r1 = client.post("/api/bots", json=payload, headers=headers)
     assert r1.status_code == 201
 
