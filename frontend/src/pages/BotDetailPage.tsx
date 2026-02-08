@@ -40,6 +40,9 @@ export default function BotDetailPage() {
   if (!bot) return <div>Loading...</div>
 
   const dirty = activeCode !== null && code !== activeCode
+  const duplicate = bot.versions.some(
+    (v: any) => String(v.code || '').trim() === String(code || '').trim()
+  )
 
   return (
     <div style={{ maxWidth: 900, display: 'grid', gap: 12 }}>
@@ -97,6 +100,12 @@ export default function BotDetailPage() {
         />
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button
+            disabled={duplicate}
+            title={
+              duplicate
+                ? 'An identical version already exists. Change the code before saving.'
+                : ''
+            }
             onClick={async () => {
               try {
                 const v = await api.createVersion(botId, code)
@@ -137,6 +146,12 @@ export default function BotDetailPage() {
             Submit (stub)
           </button>
         </div>
+        {duplicate ? (
+          <div style={{ marginTop: 8, opacity: 0.8 }}>
+            This code matches an existing saved version. We block saving
+            duplicates.
+          </div>
+        ) : null}
         {dirty ? (
           <div style={{ marginTop: 8, opacity: 0.8 }}>
             You have unsaved changes. Save a new version first (it will become
