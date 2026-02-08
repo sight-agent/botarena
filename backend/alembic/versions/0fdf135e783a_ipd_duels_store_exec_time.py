@@ -18,11 +18,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("ipd_duels", sa.Column("exec_ms_a", sa.Integer(), nullable=False, server_default="0"))
-    op.add_column("ipd_duels", sa.Column("exec_ms_b", sa.Integer(), nullable=False, server_default="0"))
+    # Idempotent: previous failed attempts might have created the columns.
+    op.execute("ALTER TABLE ipd_duels ADD COLUMN IF NOT EXISTS exec_ms_a INTEGER NOT NULL DEFAULT 0")
+    op.execute("ALTER TABLE ipd_duels ADD COLUMN IF NOT EXISTS exec_ms_b INTEGER NOT NULL DEFAULT 0")
 
 
 def downgrade() -> None:
-    op.drop_column("ipd_duels", "exec_ms_b")
-    op.drop_column("ipd_duels", "exec_ms_a")
+    op.execute("ALTER TABLE ipd_duels DROP COLUMN IF EXISTS exec_ms_b")
+    op.execute("ALTER TABLE ipd_duels DROP COLUMN IF EXISTS exec_ms_a")
 
