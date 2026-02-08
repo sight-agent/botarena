@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select, true
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -43,7 +43,7 @@ def ipd_leaderboard(db: Session = Depends(get_db)):
         .where(
             Match.env_id == "ipd",
             Match.status == "completed",
-            Bot.submitted == true,
+            Bot.submitted.is_(True),
         )
         .group_by(Bot.id, Bot.name)
         .order_by(func.max(last_step.c.cum_a).desc(), func.count(Match.id).desc(), Bot.id.asc())
