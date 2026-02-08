@@ -197,9 +197,9 @@ def main() -> int:
             steps.append(
                 {
                     "round": r,
-                    "obs_a": obs,
+                    "obs_a": obs_a,
                     "act_a": act_a,
-                    "obs_b": obs,
+                    "obs_b": obs_b,
                     "act_b": act_b,
                     "reward_a": ra,
                     "reward_b": rb,
