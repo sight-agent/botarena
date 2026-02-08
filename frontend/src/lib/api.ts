@@ -14,6 +14,20 @@ export function clearToken() {
   localStorage.removeItem('access_token')
 }
 
+export class ApiError extends Error {
+  status: number
+  detail: string
+  body: any
+
+  constructor(status: number, detail: string, body: any) {
+    super(detail)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+    this.body = body
+  }
+}
+
 async function request<T>(
   path: string,
   opts: RequestInit & { auth?: boolean } = {}
@@ -24,16 +38,25 @@ async function request<T>(
     const t = getToken()
     if (t) headers.set('Authorization', `Bearer ${t}`)
   }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
     headers
   })
+
   const text = await res.text()
-  const body = text ? JSON.parse(text) : null
+  let body: any = null
+  try {
+    body = text ? JSON.parse(text) : null
+  } catch {
+    body = { raw: text }
+  }
+
   if (!res.ok) {
     const detail = body?.detail || `HTTP ${res.status}`
-    throw new Error(detail)
+    throw new ApiError(res.status, String(detail), body)
   }
+
   return body as T
 }
 
@@ -115,5 +138,17 @@ export const api = {
       cum_b?: number
       steps: Array<any>
     }>(`/api/matches/${matchId}`, { auth: true })
+  },
+  async deleteBot(botId: number) {
+    return request<{ ok: true }>(`/api/bots/${botId}`, {
+      method: 'DELETE',
+      auth: true
+    })
+  },
+  async deleteVersion(botId: string, versionId: number) {
+    return request<{ ok: true }>(`/api/bots/${botId}/versions/${versionId}`, {
+      method: 'DELETE',
+      auth: true
+    })
   }
 }

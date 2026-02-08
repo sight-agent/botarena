@@ -6,6 +6,7 @@ export default function BotsPage() {
   const nav = useNavigate()
   const [bots, setBots] = useState<Array<any>>([])
   const [error, setError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState(false)
 
   const [name, setName] = useState('mybot')
   const [description, setDescription] = useState('MVP bot')
@@ -15,11 +16,13 @@ export default function BotsPage() {
 
   async function load() {
     setError(null)
+    setAuthError(false)
     try {
       const b = await api.listBots()
       setBots(b)
     } catch (err: any) {
-      setError(String(err?.message || err))
+      if (err?.status === 401) setAuthError(true)
+      setError(String(err?.detail || err?.message || err))
     }
   }
 
@@ -33,19 +36,36 @@ export default function BotsPage() {
         <h2>Your bots</h2>
         {error ? (
           <div style={{ color: 'crimson' }}>
-            {error} (try logging in)
-            <div>
-              <button onClick={() => nav('/login')}>Go to login</button>
-            </div>
+            {error}
+            {authError ? (
+              <div>
+                <button onClick={() => nav('/login')}>Go to login</button>
+              </div>
+            ) : null}
           </div>
         ) : null}
         <ul>
           {bots.map((b) => (
-            <li key={b.id}>
+            <li key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <Link to={`/bots/${b.id}`}>{b.name}</Link>{' '}
               <span style={{ opacity: 0.7 }}>
                 (active v: {b.active_version_id ?? 'none'})
               </span>
+              <button
+                style={{ marginLeft: 'auto' }}
+                onClick={async () => {
+                  if (!confirm(`Delete bot "${b.name}"? This cannot be undone.`)) return
+                  try {
+                    await api.deleteBot(b.id)
+                    await load()
+                  } catch (err: any) {
+                    if (err?.status === 401) setAuthError(true)
+                    setError(String(err?.detail || err?.message || err))
+                  }
+                }}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
@@ -59,12 +79,14 @@ export default function BotsPage() {
           onSubmit={async (e) => {
             e.preventDefault()
             setError(null)
+            setAuthError(false)
             try {
               const created = await api.createBot(name, description, code)
               await load()
               nav(`/bots/${created.id}`)
             } catch (err: any) {
-              setError(String(err?.message || err))
+              if (err?.status === 401) setAuthError(true)
+              setError(String(err?.detail || err?.message || err))
             }
           }}
         >

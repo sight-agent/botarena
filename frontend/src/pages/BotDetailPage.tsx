@@ -21,7 +21,7 @@ export default function BotDetailPage() {
       const active = b.versions.find((v: any) => v.id === b.active_version_id)
       if (active) setCode(active.code)
     } catch (err: any) {
-      setError(String(err?.message || err))
+      setError(String(err?.detail || err?.message || err))
     }
   }
 
@@ -46,7 +46,7 @@ export default function BotDetailPage() {
         <h3>Versions</h3>
         <ul>
           {bot.versions.map((v: any) => (
-            <li key={v.id} style={{ display: 'flex', gap: 8 }}>
+            <li key={v.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={async () => {
                   await api.setActiveVersion(botId, v.id)
@@ -59,6 +59,21 @@ export default function BotDetailPage() {
               <span>
                 v{v.version_num} (id {v.id})
               </span>
+              <button
+                style={{ marginLeft: 'auto' }}
+                disabled={v.id === bot.active_version_id}
+                onClick={async () => {
+                  if (!confirm(`Delete version v${v.version_num}? This cannot be undone.`)) return
+                  try {
+                    await api.deleteVersion(botId, v.id)
+                    await load()
+                  } catch (err: any) {
+                    setError(String(err?.detail || err?.message || err))
+                  }
+                }}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
@@ -91,7 +106,7 @@ export default function BotDetailPage() {
                 setRunStatus(null)
               } catch (err: any) {
                 setRunStatus(null)
-                setError(String(err?.message || err))
+                setError(String(err?.detail || err?.message || err))
               }
             }}
           >

@@ -10,6 +10,8 @@ from app.api.deps import get_current_user
 from app.crud.bots import (
     create_bot_with_initial_version,
     create_version,
+    delete_bot,
+    delete_version,
     get_bot,
     list_bots,
     set_active_version,
@@ -187,6 +189,34 @@ def bots_run_test(bot_id: int, db: Session = Depends(get_db), user=Depends(get_c
     db.commit()
 
     return RunTestOut(match_id=match.id, cum_a=int(result.cum_a), cum_b=int(result.cum_b))
+
+
+@router.delete("/{bot_id}")
+def bots_delete(bot_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    try:
+        delete_bot(db, user_id=user.id, bot_id=bot_id)
+    except ValueError as e:
+        if str(e) == "bot_not_found":
+            raise HTTPException(status_code=404, detail="bot_not_found")
+        raise
+    return {"ok": True}
+
+
+@router.delete("/{bot_id}/versions/{version_id}")
+def bots_delete_version(
+    bot_id: int, version_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    try:
+        delete_version(db, user_id=user.id, bot_id=bot_id, version_id=version_id)
+    except ValueError as e:
+        if str(e) == "bot_not_found":
+            raise HTTPException(status_code=404, detail="bot_not_found")
+        if str(e) == "version_not_found":
+            raise HTTPException(status_code=404, detail="version_not_found")
+        if str(e) == "cannot_delete_active_version":
+            raise HTTPException(status_code=400, detail="cannot_delete_active_version")
+        raise
+    return {"ok": True}
 
 
 @router.post("/{bot_id}/submit")

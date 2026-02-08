@@ -58,3 +58,27 @@ def set_active_version(db: Session, *, user_id: int, bot_id: int, version_id: in
     db.refresh(bot)
     return bot
 
+
+def delete_bot(db: Session, *, user_id: int, bot_id: int) -> None:
+    bot = get_bot(db, user_id, bot_id)
+    if bot is None:
+        raise ValueError("bot_not_found")
+    db.delete(bot)
+    db.commit()
+
+
+def delete_version(db: Session, *, user_id: int, bot_id: int, version_id: int) -> None:
+    bot = get_bot(db, user_id, bot_id)
+    if bot is None:
+        raise ValueError("bot_not_found")
+
+    if bot.active_version_id == version_id:
+        raise ValueError("cannot_delete_active_version")
+
+    v = db.scalar(select(BotVersion).where(BotVersion.bot_id == bot_id, BotVersion.id == version_id))
+    if v is None:
+        raise ValueError("version_not_found")
+
+    db.delete(v)
+    db.commit()
+
