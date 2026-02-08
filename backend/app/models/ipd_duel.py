@@ -26,4 +26,8 @@ class IpdDuel(Base):
     score_a: Mapped[int] = mapped_column(Integer, nullable=False)
     score_b: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    # Total execution time in ms (approx) spent waiting for each bot's responses.
+    exec_ms_a: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    exec_ms_b: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -124,6 +124,11 @@ def main() -> int:
         st_a: dict[str, Any] = {}
         st_b: dict[str, Any] = {}
 
+        # Approximate per-bot execution time: time spent from sending input
+        # until we receive a response line (includes bot's Python runtime + IPC).
+        exec_ms_a = 0.0
+        exec_ms_b = 0.0
+
         for r in range(1, ROUNDS + 1):
             if (time.monotonic() - start) * 1000 > MAX_MATCH_MS:
                 sys.stdout.write(json.dumps({"error_log": "match_timeout"}) + "\n")
@@ -134,13 +139,18 @@ def main() -> int:
             msg_b = json.dumps({"obs": obs, "state": st_b}) + "\n"
 
             assert p_a.stdin is not None and p_b.stdin is not None
+
+            t0a = time.monotonic()
             p_a.stdin.write(msg_a)
             p_a.stdin.flush()
+            line_a = _readline_timeout(p_a.stdout, MAX_STEP_MS / 1000)  # type: ignore[arg-type]
+            exec_ms_a += (time.monotonic() - t0a) * 1000
+
+            t0b = time.monotonic()
             p_b.stdin.write(msg_b)
             p_b.stdin.flush()
-
-            line_a = _readline_timeout(p_a.stdout, MAX_STEP_MS / 1000)  # type: ignore[arg-type]
             line_b = _readline_timeout(p_b.stdout, MAX_STEP_MS / 1000)  # type: ignore[arg-type]
+            exec_ms_b += (time.monotonic() - t0b) * 1000
             if line_a is None or line_b is None:
                 sys.stdout.write(json.dumps({"error_log": "step_timeout"}) + "\n")
                 return 4
@@ -191,7 +201,20 @@ def main() -> int:
             )
             history.append([act_a, act_b])
 
-        sys.stdout.write(json.dumps({"steps": steps, "cum_a": cum_a, "cum_b": cum_b}) + "\n")
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "steps": steps,
+                    "cum_a": cum_a,
+                    "cum_b": cum_b,
+                    "exec_ms_a": exec_ms_a,
+                    "exec_ms_b": exec_ms_b,
+                    "avg_exec_ms_a": exec_ms_a / ROUNDS,
+                    "avg_exec_ms_b": exec_ms_b / ROUNDS,
+                }
+            )
+            + "\n"
+        )
         return 0
     finally:
         for p in (p_a, p_b):

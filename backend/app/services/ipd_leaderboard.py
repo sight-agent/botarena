@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bot import Bot
 from app.models.ipd_duel import IpdDuel
+from app.models.user import User
 from app.services.code_hash import code_hash_py
 from app.services.docker_ipd_runner import DockerRunConfig, run_ipd_in_docker
 
@@ -60,6 +61,8 @@ def ensure_ipd_duel(
         seed=seed,
         score_a=int(result.cum_a),
         score_b=int(result.cum_b),
+        exec_ms_a=int(result.exec_ms_a),
+        exec_ms_b=int(result.exec_ms_b),
     )
     db.add(duel)
     db.commit()
@@ -93,21 +96,27 @@ def compute_ipd_leaderboard(db: Session, *, cfg: DockerRunConfig, limit: int = 5
         q = (
             select(
                 func.avg(IpdDuel.score_a).label("avg_score"),
+                func.avg(IpdDuel.exec_ms_a / 200.0).label("avg_exec_ms"),
                 func.count(IpdDuel.id).label("duels"),
                 func.count(func.distinct(IpdDuel.bot_b_id)).label("opponents"),
             )
             .where(IpdDuel.bot_a_id == b.id, IpdDuel.bot_a_hash == b_hash)
         )
         r = db.execute(q).mappings().one()
+
+        creator = db.scalar(select(User.username).where(User.id == b.user_id))
+
         rows.append(
             {
                 "bot_id": int(b.id),
                 "bot_name": str(b.name),
+                "creator": str(creator or ""),
                 "avg_score": float(r["avg_score"] or 0.0),
+                "avg_exec_ms": float(r["avg_exec_ms"] or 0.0),
                 "duels": int(r["duels"] or 0),
                 "opponents": int(r["opponents"] or 0),
             }
         )
 
-    rows.sort(key=lambda x: (-x["avg_score"], -x["opponents"], x["bot_id"]))
+    rows.sort(key=lambda x: (-x["avg_score"], x["avg_exec_ms"], -x["opponents"], x["bot_id"]))
     return rows[:limit]

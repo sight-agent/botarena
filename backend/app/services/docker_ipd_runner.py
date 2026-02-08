@@ -22,6 +22,10 @@ class DockerIpdResult:
     steps: list[dict]
     cum_a: int
     cum_b: int
+    exec_ms_a: float = 0.0
+    exec_ms_b: float = 0.0
+    avg_exec_ms_a: float = 0.0
+    avg_exec_ms_b: float = 0.0
     error_log: str | None = None
 
 
@@ -88,6 +92,10 @@ def run_ipd_in_docker(*, cfg: DockerRunConfig, bot_a_code: str, bot_b_code: str,
             steps=list(body.get("steps") or []),
             cum_a=int(body["cum_a"]),
             cum_b=int(body["cum_b"]),
+            exec_ms_a=float(body.get("exec_ms_a") or 0.0),
+            exec_ms_b=float(body.get("exec_ms_b") or 0.0),
+            avg_exec_ms_a=float(body.get("avg_exec_ms_a") or 0.0),
+            avg_exec_ms_b=float(body.get("avg_exec_ms_b") or 0.0),
             error_log=body.get("error_log"),
         )
     except Exception as e:  # noqa: BLE001

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 
 export default function EnvIPDPage() {
   const [rows, setRows] = useState<
-    Array<{ bot_id: number; bot_name: string; avg_score: number; opponents: number; duels: number }>
+    Array<{ bot_id: number; bot_name: string; creator: string; avg_score: number; avg_exec_ms: number; opponents: number; duels: number }>
   >([])
   const [error, setError] = useState<string | null>(null)
 
@@ -58,8 +58,10 @@ export default function EnvIPDPage() {
                 <span style={{ display: 'inline-block', width: 26, opacity: 0.7 }}>
                   #{idx + 1}
                 </span>{' '}
-                <Link to={`/bots/${r.bot_id}`}>{r.bot_name}</Link> — avg score:{' '}
-                <b>{r.avg_score.toFixed(2)}</b> ({r.opponents} opponents, {r.duels} duels)
+                <Link to={`/bots/${r.bot_id}`}>{r.bot_name}</Link> by{' '}
+                <span style={{ opacity: 0.8 }}>{r.creator || 'unknown'}</span> — avg score:{' '}
+                <b>{r.avg_score.toFixed(2)}</b> · avg exec:{' '}
+                <b>{r.avg_exec_ms.toFixed(2)}ms</b> ({r.opponents} opponents, {r.duels} duels)
               </li>
             ))}
           </ul>
