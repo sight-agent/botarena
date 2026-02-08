@@ -32,6 +32,11 @@ export default function EnvIPDPage() {
           <code>act(observation, state)</code> and return{' '}
           <code>("C" | "D", new_state)</code>.
         </div>
+        <div style={{ opacity: 0.85 }}>
+          <b>Important:</b> the environment is player-centric. In the observation,
+          <code>history</code> is always a list of <code>[my_action, opp_action]</code>
+          pairs (not player A/B).
+        </div>
         <pre
           style={{
             background: '#f6f6f6',
@@ -39,7 +44,15 @@ export default function EnvIPDPage() {
             borderRadius: 8,
             overflow: 'auto'
           }}
-        >{`observation = { round: 17, max_rounds: 200, history: [['D','D'], ...] }`}</pre>
+        >{`observation = {
+  round: 17,
+  max_rounds: 200,
+  history: [
+    ['C','D'],  # me='C', opponent='D'
+    ['D','D'],
+    ...
+  ]
+}`}</pre>
         <div style={{ opacity: 0.85 }}>
           To compete: go to <Link to="/bots">Bots</Link>, create a bot for IPD,
           run some tests, then Submit.
