@@ -11,6 +11,7 @@ export default function BotDetailPage() {
   const [code, setCode] = useState(
     "def act(observation, state):\n    return 'C', state\n"
   )
+  const [activeCode, setActiveCode] = useState<string | null>(null)
 
   async function load() {
     if (!botId) return
@@ -19,7 +20,12 @@ export default function BotDetailPage() {
       const b = await api.getBot(botId)
       setBot(b)
       const active = b.versions.find((v: any) => v.id === b.active_version_id)
-      if (active) setCode(active.code)
+      if (active) {
+        setCode(active.code)
+        setActiveCode(active.code)
+      } else {
+        setActiveCode(null)
+      }
     } catch (err: any) {
       setError(String(err?.detail || err?.message || err))
     }
@@ -32,6 +38,8 @@ export default function BotDetailPage() {
   if (!botId) return <div>Missing botId</div>
   if (error) return <div style={{ color: 'crimson' }}>{error}</div>
   if (!bot) return <div>Loading...</div>
+
+  const dirty = activeCode !== null && code !== activeCode
 
   return (
     <div style={{ maxWidth: 900, display: 'grid', gap: 12 }}>
@@ -90,13 +98,22 @@ export default function BotDetailPage() {
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button
             onClick={async () => {
-              await api.createVersion(botId, code)
-              await load()
+              try {
+                const v = await api.createVersion(botId, code)
+                // UX: after saving, immediately set the new version active,
+                // so Run Test always runs what you just saved.
+                await api.setActiveVersion(botId, v.id)
+                await load()
+              } catch (err: any) {
+                setError(String(err?.detail || err?.message || err))
+              }
             }}
           >
             Save new version
           </button>
           <button
+            disabled={dirty}
+            title={dirty ? 'Save (and activate) your changes before running a test.' : ''}
             onClick={async () => {
               setRunStatus('Running sandbox match vs always_cooperate...')
               setRunResult(null)
@@ -120,6 +137,12 @@ export default function BotDetailPage() {
             Submit (stub)
           </button>
         </div>
+        {dirty ? (
+          <div style={{ marginTop: 8, opacity: 0.8 }}>
+            You have unsaved changes. Save a new version first (it will become
+            active), then you can Run Test.
+          </div>
+        ) : null}
         {runStatus ? <div style={{ marginTop: 8 }}>{runStatus}</div> : null}
         {runResult ? (
           <div style={{ marginTop: 8 }}>

@@ -150,5 +150,10 @@ export const api = {
       method: 'DELETE',
       auth: true
     })
+  },
+  async ipdLeaderboard() {
+    return request<
+      Array<{ bot_id: number; bot_name: string; best_score: number; matches: number }>
+    >('/api/env/ipd/leaderboard')
   }
 }

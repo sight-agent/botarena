@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.routers import auth, bots, health, matches
+from app.api.routers import auth, bots, env, health, matches
 
 
 def create_app() -> FastAPI:
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api")
     app.include_router(bots.router, prefix="/api")
     app.include_router(matches.router, prefix="/api")
+    app.include_router(env.router, prefix="/api")
     return app
 
 
