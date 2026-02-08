@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 
 export default function EnvIPDPage() {
   const [rows, setRows] = useState<
-    Array<{ bot_id: number; bot_name: string; best_score: number; matches: number }>
+    Array<{ bot_id: number; bot_name: string; avg_score: number; opponents: number; duels: number }>
   >([])
   const [error, setError] = useState<string | null>(null)
 
@@ -41,13 +41,13 @@ export default function EnvIPDPage() {
           }}
         >{`observation = { round: 17, max_rounds: 200, history: [['D','D'], ...] }`}</pre>
         <div style={{ opacity: 0.85 }}>
-          To compete: go to <Link to="/bots">Bots</Link>, save a version, run a
-          test.
+          To compete: go to <Link to="/bots">Bots</Link>, create a bot for IPD,
+          run some tests, then Submit.
         </div>
       </section>
 
       <section style={{ display: 'grid', gap: 8 }}>
-        <h3 style={{ margin: 0 }}>Leaderboard (vs always_cooperate)</h3>
+        <h3 style={{ margin: 0 }}>Leaderboard (avg vs all submitted bots)</h3>
         {error ? <div style={{ color: 'crimson' }}>{error}</div> : null}
         {rows.length === 0 ? (
           <div style={{ opacity: 0.7 }}>No completed matches yet.</div>
@@ -58,8 +58,8 @@ export default function EnvIPDPage() {
                 <span style={{ display: 'inline-block', width: 26, opacity: 0.7 }}>
                   #{idx + 1}
                 </span>{' '}
-                <Link to={`/bots/${r.bot_id}`}>{r.bot_name}</Link> — best score:{' '}
-                <b>{r.best_score}</b> ({r.matches} matches)
+                <Link to={`/bots/${r.bot_id}`}>{r.bot_name}</Link> — avg score:{' '}
+                <b>{r.avg_score.toFixed(2)}</b> ({r.opponents} opponents, {r.duels} duels)
               </li>
             ))}
           </ul>
