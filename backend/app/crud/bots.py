@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bot import Bot
 from app.models.bot_version import BotVersion
+from app.services.code_hash import code_hash_py
 
 
 def list_bots(db: Session, user_id: int) -> list[Bot]:
@@ -20,7 +21,7 @@ def create_bot_with_initial_version(
     db.add(bot)
     db.flush()  # assigns bot.id
 
-    v1 = BotVersion(bot_id=bot.id, version_num=1, code=code)
+    v1 = BotVersion(bot_id=bot.id, version_num=1, code=code, code_hash=code_hash_py(code))
     db.add(v1)
     db.flush()
 
@@ -35,16 +36,20 @@ def create_version(db: Session, *, user_id: int, bot_id: int, code: str) -> BotV
     if bot is None:
         raise ValueError("bot_not_found")
 
-    # Prevent saving identical versions (MVP): exact match after stripping.
-    code_norm = (code or "").strip()
-    exists = db.scalar(
-        select(BotVersion.id).where(BotVersion.bot_id == bot_id, func.trim(BotVersion.code) == code_norm).limit(1)
-    )
+    # Prevent saving syntactically identical versions (ignore whitespace + comments)
+    # by comparing AST-hashes.
+    try:
+        ch = code_hash_py(code)
+    except SyntaxError:
+        # Let validation happen elsewhere (or return a clearer error later).
+        raise
+
+    exists = db.scalar(select(BotVersion.id).where(BotVersion.bot_id == bot_id, BotVersion.code_hash == ch).limit(1))
     if exists is not None:
         raise ValueError("duplicate_code")
 
     next_num = db.scalar(select(func.coalesce(func.max(BotVersion.version_num), 0) + 1).where(BotVersion.bot_id == bot_id))
-    v = BotVersion(bot_id=bot_id, version_num=int(next_num), code=code)
+    v = BotVersion(bot_id=bot_id, version_num=int(next_num), code=code, code_hash=ch)
     db.add(v)
     db.commit()
     db.refresh(v)
