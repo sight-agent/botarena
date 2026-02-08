@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.bot import Bot
@@ -14,55 +14,58 @@ from app.services.docker_ipd_runner import DockerRunConfig, run_ipd_in_docker
 
 def _stable_seed(a: str, b: str) -> int:
     h = hashlib.sha256((a + "|" + b).encode("utf-8")).digest()
-    # fit in signed 31-bit for consistency
     return int.from_bytes(h[:4], "big") & 0x7FFFFFFF
 
 
-def ensure_ipd_duel(
-    *,
-    db: Session,
-    cfg: DockerRunConfig,
-    bot_a: Bot,
-    bot_b: Bot,
-) -> IpdDuel:
-    """Ensure a duel exists for the given bot code snapshots.
+def ensure_ipd_duel(*, db: Session, cfg: DockerRunConfig, bot_x: Bot, bot_y: Bot) -> IpdDuel:
+    """Ensure a duel exists for the (unordered) pair.
 
-    Duel is directional (A vs B). For fairness, leaderboard will use both A->B and B->A.
+    We store the duel as (bot1_id < bot2_id) and run exactly one sandbox match,
+    with history normalized per-bot ([my_action, opp_action]).
     """
 
-    a_hash = code_hash_py(bot_a.code)
-    b_hash = code_hash_py(bot_b.code)
+    if bot_x.id == bot_y.id:
+        raise ValueError("same_bot")
+
+    # order by id for stability
+    if bot_x.id < bot_y.id:
+        b1, b2 = bot_x, bot_y
+        flip = False
+    else:
+        b1, b2 = bot_y, bot_x
+        flip = True
+
+    h1 = code_hash_py(b1.code)
+    h2 = code_hash_py(b2.code)
 
     existing = db.scalar(
         select(IpdDuel)
         .where(
-            IpdDuel.bot_a_id == bot_a.id,
-            IpdDuel.bot_b_id == bot_b.id,
-            IpdDuel.bot_a_hash == a_hash,
-            IpdDuel.bot_b_hash == b_hash,
+            IpdDuel.bot1_id == b1.id,
+            IpdDuel.bot2_id == b2.id,
+            IpdDuel.bot1_hash == h1,
+            IpdDuel.bot2_hash == h2,
         )
         .limit(1)
     )
     if existing is not None:
         return existing
 
-    seed = _stable_seed(a_hash, b_hash)
-
-    result = run_ipd_in_docker(cfg=cfg, bot_a_code=bot_a.code, bot_b_code=bot_b.code, seed=seed)
+    seed = _stable_seed(h1, h2)
+    result = run_ipd_in_docker(cfg=cfg, bot_a_code=b1.code, bot_b_code=b2.code, seed=seed)
     if result.error_log:
-        # Don't persist a broken duel snapshot
         raise RuntimeError(f"ipd_duel_failed: {result.error_log}")
 
     duel = IpdDuel(
-        bot_a_id=bot_a.id,
-        bot_b_id=bot_b.id,
-        bot_a_hash=a_hash,
-        bot_b_hash=b_hash,
+        bot1_id=b1.id,
+        bot2_id=b2.id,
+        bot1_hash=h1,
+        bot2_hash=h2,
         seed=seed,
-        score_a=int(result.cum_a),
-        score_b=int(result.cum_b),
-        exec_ms_a=int(result.exec_ms_a),
-        exec_ms_b=int(result.exec_ms_b),
+        score1=int(result.cum_a),
+        score2=int(result.cum_b),
+        exec_ms_1=int(result.exec_ms_a),
+        exec_ms_2=int(result.exec_ms_b),
     )
     db.add(duel)
     db.commit()
@@ -71,41 +74,47 @@ def ensure_ipd_duel(
 
 
 def compute_ipd_leaderboard(db: Session, *, cfg: DockerRunConfig, limit: int = 50):
-    """Leaderboard score = average score vs all other submitted bots.
-
-    For each pair (A,B), we run 2 directional duels (A->B, B->A) and then
-    each bot's score is the mean of its directional scores against all opponents.
-
-    Returns rows: {bot_id, bot_name, avg_score, opponents, duels}
-    """
-
     bots = list(db.scalars(select(Bot).where(Bot.env_id == "ipd", Bot.submitted.is_(True)).order_by(Bot.id.asc())))
 
-    # Ensure duels exist (directional) for current code snapshots
+    # Ensure duels exist for current code snapshots
     for i in range(len(bots)):
         for j in range(i + 1, len(bots)):
-            a = bots[i]
-            b = bots[j]
-            ensure_ipd_duel(db=db, cfg=cfg, bot_a=a, bot_b=b)
-            ensure_ipd_duel(db=db, cfg=cfg, bot_a=b, bot_b=a)
+            ensure_ipd_duel(db=db, cfg=cfg, bot_x=bots[i], bot_y=bots[j])
 
-    # Aggregate: for each bot, average over duels where it's bot_a, using current hashes
     rows = []
     for b in bots:
-        b_hash = code_hash_py(b.code)
+        bh = code_hash_py(b.code)
+
+        # Collect scores and exec times from both sides of the undirected duel.
+        # When b is bot1: use score1/exec_ms_1, when b is bot2: use score2/exec_ms_2.
+        score_expr = case(
+            (IpdDuel.bot1_id == b.id, IpdDuel.score1),
+            else_=IpdDuel.score2,
+        )
+        exec_expr = case(
+            (IpdDuel.bot1_id == b.id, IpdDuel.exec_ms_1 / 200.0),
+            else_=IpdDuel.exec_ms_2 / 200.0,
+        )
+
+        hash_ok = or_(
+            and_(IpdDuel.bot1_id == b.id, IpdDuel.bot1_hash == bh),
+            and_(IpdDuel.bot2_id == b.id, IpdDuel.bot2_hash == bh),
+        )
+
         q = (
             select(
-                func.avg(IpdDuel.score_a).label("avg_score"),
-                func.avg(IpdDuel.exec_ms_a / 200.0).label("avg_exec_ms"),
+                func.avg(score_expr).label("avg_score"),
+                func.avg(exec_expr).label("avg_exec_ms"),
                 func.count(IpdDuel.id).label("duels"),
-                func.count(func.distinct(IpdDuel.bot_b_id)).label("opponents"),
             )
-            .where(IpdDuel.bot_a_id == b.id, IpdDuel.bot_a_hash == b_hash)
+            .where(or_(IpdDuel.bot1_id == b.id, IpdDuel.bot2_id == b.id))
+            .where(hash_ok)
         )
         r = db.execute(q).mappings().one()
 
         creator = db.scalar(select(User.username).where(User.id == b.user_id))
 
+        opponents = max(len(bots) - 1, 0)
         rows.append(
             {
                 "bot_id": int(b.id),
@@ -114,7 +123,7 @@ def compute_ipd_leaderboard(db: Session, *, cfg: DockerRunConfig, limit: int = 5
                 "avg_score": float(r["avg_score"] or 0.0),
                 "avg_exec_ms": float(r["avg_exec_ms"] or 0.0),
                 "duels": int(r["duels"] or 0),
-                "opponents": int(r["opponents"] or 0),
+                "opponents": int(opponents),
             }
         )
 

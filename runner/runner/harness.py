@@ -29,6 +29,8 @@ def is_valid_action(x: Any) -> bool:
 
 
 def observation(*, round_num: int, history: list[list[Action]]) -> dict[str, Any]:
+    # history is always from the perspective of the receiving bot:
+    # each entry is [my_action, opp_action]
     return {"round": round_num, "max_rounds": ROUNDS, "history": history}
 
 
@@ -117,6 +119,8 @@ def main() -> int:
                 sys.stdout.write(json.dumps({"error_log": _truncate(err)}) + "\n")
                 return 3
 
+        # Global history stores [act_a, act_b] for each round.
+        # We derive per-bot history from this.
         history: list[list[Action]] = []
         steps: list[dict[str, Any]] = []
         cum_a = 0
@@ -134,9 +138,13 @@ def main() -> int:
                 sys.stdout.write(json.dumps({"error_log": "match_timeout"}) + "\n")
                 return 4
 
-            obs = observation(round_num=r, history=list(history))
-            msg_a = json.dumps({"obs": obs, "state": st_a}) + "\n"
-            msg_b = json.dumps({"obs": obs, "state": st_b}) + "\n"
+            # Per-bot observation: normalize history to always be [my_action, opp_action]
+            hist_a = [pair[:] for pair in history]
+            hist_b = [[b, a] for (a, b) in history]
+            obs_a = observation(round_num=r, history=hist_a)
+            obs_b = observation(round_num=r, history=hist_b)
+            msg_a = json.dumps({"obs": obs_a, "state": st_a}) + "\n"
+            msg_b = json.dumps({"obs": obs_b, "state": st_b}) + "\n"
 
             assert p_a.stdin is not None and p_b.stdin is not None
 
