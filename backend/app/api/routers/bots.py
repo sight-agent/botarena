@@ -98,6 +98,8 @@ def bots_create_version(
     except ValueError as e:
         if str(e) == "bot_not_found":
             raise HTTPException(status_code=404, detail="bot_not_found")
+        if str(e) == "duplicate_code":
+            raise HTTPException(status_code=409, detail="duplicate_code")
         raise
     return BotVersionOut(id=v.id, version_num=v.version_num, code=v.code, created_at=v.created_at)
 

@@ -35,6 +35,14 @@ def create_version(db: Session, *, user_id: int, bot_id: int, code: str) -> BotV
     if bot is None:
         raise ValueError("bot_not_found")
 
+    # Prevent saving identical versions (MVP): exact match after stripping.
+    code_norm = (code or "").strip()
+    exists = db.scalar(
+        select(BotVersion.id).where(BotVersion.bot_id == bot_id, func.trim(BotVersion.code) == code_norm).limit(1)
+    )
+    if exists is not None:
+        raise ValueError("duplicate_code")
+
     next_num = db.scalar(select(func.coalesce(func.max(BotVersion.version_num), 0) + 1).where(BotVersion.bot_id == bot_id))
     v = BotVersion(bot_id=bot_id, version_num=int(next_num), code=code)
     db.add(v)
