@@ -15,6 +15,9 @@ class Bot(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Which environment the bot is submitted to (MVP: only one at a time).
+    submitted_env: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+
     active_version_id: Mapped[int | None] = mapped_column(
         ForeignKey("bot_versions.id", ondelete="SET NULL"), nullable=True
     )

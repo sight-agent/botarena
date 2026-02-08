@@ -155,5 +155,11 @@ export const api = {
     return request<
       Array<{ bot_id: number; bot_name: string; best_score: number; matches: number }>
     >('/api/env/ipd/leaderboard')
+  },
+  async submitBot(botId: string) {
+    return request<{ id: number; submitted_env: string | null }>(
+      `/api/bots/${botId}/submit`,
+      { method: 'POST', auth: true }
+    )
   }
 }

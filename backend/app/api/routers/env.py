@@ -40,7 +40,11 @@ def ipd_leaderboard(db: Session = Depends(get_db)):
         )
         .join(Match, Match.bot_id == Bot.id)
         .join(last_step, last_step.c.match_id == Match.id)
-        .where(Match.env_id == "ipd", Match.status == "completed")
+        .where(
+            Match.env_id == "ipd",
+            Match.status == "completed",
+            Bot.submitted_env == "ipd",
+        )
         .group_by(Bot.id, Bot.name)
         .order_by(func.max(last_step.c.cum_a).desc(), func.count(Match.id).desc(), Bot.id.asc())
         .limit(50)

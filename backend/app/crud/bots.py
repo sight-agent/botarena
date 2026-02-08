@@ -90,3 +90,17 @@ def delete_version(db: Session, *, user_id: int, bot_id: int, version_id: int) -
     db.delete(v)
     db.commit()
 
+
+def submit_bot(db: Session, *, user_id: int, bot_id: int, env_id: str) -> Bot:
+    bot = get_bot(db, user_id, bot_id)
+    if bot is None:
+        raise ValueError("bot_not_found")
+    if bot.active_version_id is None:
+        raise ValueError("no_active_version")
+
+    bot.submitted_env = env_id
+    db.add(bot)
+    db.commit()
+    db.refresh(bot)
+    return bot
+

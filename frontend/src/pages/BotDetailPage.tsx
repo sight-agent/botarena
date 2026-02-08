@@ -139,11 +139,17 @@ export default function BotDetailPage() {
             Run Test
           </button>
           <button
-            onClick={() => {
-              alert('Submit is intentionally not implemented in this scaffold.')
+            onClick={async () => {
+              try {
+                await api.submitBot(botId)
+                await load()
+                alert('Submitted to IPD leaderboard.')
+              } catch (err: any) {
+                setError(String(err?.detail || err?.message || err))
+              }
             }}
           >
-            Submit (stub)
+            Submit
           </button>
         </div>
         {duplicate ? (

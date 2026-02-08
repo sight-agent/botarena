@@ -15,6 +15,7 @@ from app.crud.bots import (
     get_bot,
     list_bots,
     set_active_version,
+    submit_bot,
 )
 from app.db.session import get_db
 from app.models.bot_version import BotVersion
@@ -43,6 +44,7 @@ def bots_list(db: Session = Depends(get_db), user=Depends(get_current_user)):
             id=b.id,
             name=b.name,
             description=b.description,
+            submitted_env=getattr(b, "submitted_env", None),
             active_version_id=b.active_version_id,
             created_at=b.created_at,
             updated_at=b.updated_at,
@@ -64,6 +66,7 @@ def bots_create(payload: BotCreateIn, db: Session = Depends(get_db), user=Depend
         id=bot.id,
         name=bot.name,
         description=bot.description,
+        submitted_env=getattr(bot, "submitted_env", None),
         active_version_id=bot.active_version_id,
         created_at=bot.created_at,
         updated_at=bot.updated_at,
@@ -120,6 +123,7 @@ def bots_set_active(
         id=bot.id,
         name=bot.name,
         description=bot.description,
+        submitted_env=getattr(bot, "submitted_env", None),
         active_version_id=bot.active_version_id,
         created_at=bot.created_at,
         updated_at=bot.updated_at,
@@ -221,10 +225,24 @@ def bots_delete_version(
     return {"ok": True}
 
 
-@router.post("/{bot_id}/submit")
+@router.post("/{bot_id}/submit", response_model=BotOut)
 def bots_submit(bot_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Ranked submission/evaluation is intentionally not implemented in this scaffold.
-    bot = get_bot(db, user.id, bot_id)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="bot_not_found")
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="not_implemented")
+    # MVP: mark bot as submitted to IPD (global leaderboard will show submitted bots).
+    try:
+        bot = submit_bot(db, user_id=user.id, bot_id=bot_id, env_id="ipd")
+    except ValueError as e:
+        if str(e) == "bot_not_found":
+            raise HTTPException(status_code=404, detail="bot_not_found")
+        if str(e) == "no_active_version":
+            raise HTTPException(status_code=400, detail="no_active_version")
+        raise
+
+    return BotOut(
+        id=bot.id,
+        name=bot.name,
+        description=bot.description,
+        submitted_env=getattr(bot, "submitted_env", None),
+        active_version_id=bot.active_version_id,
+        created_at=bot.created_at,
+        updated_at=bot.updated_at,
+    )

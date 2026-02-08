@@ -14,6 +14,7 @@ class BotOut(BaseModel):
     id: int
     name: str
     description: str | None
+    submitted_env: str | None = None
     active_version_id: int | None
     created_at: datetime
     updated_at: datetime
